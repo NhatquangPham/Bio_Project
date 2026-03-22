@@ -1,0 +1,116 @@
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║       GIAI ĐOẠN 1: BÁO CÁO THỐNG KÊ Y KHOA – MICROBIOME & BÉO PHÌ        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Dữ liệu: 1561 mẫu phân (5 cohort nghiên cứu độc lập)
+Nhóm H (Healthy): 652 | Nhóm OB (Obese): 556 | Nhóm OW (Overweight): 353
+Số genera phân tích: 71 (sau lọc prevalence ≥ 10%)
+Phép kiểm định chính: Mann-Whitney U (alpha diversity), PERMANOVA (beta diversity)
+Hiệu chỉnh đa kiểm định: Benjamini-Hochberg FDR (differential abundance)
+
+══════════════════════════════════════════════════════════════════════════════
+PHẦN 1 – ALPHA DIVERSITY (Đa dạng trong mỗi mẫu)
+══════════════════════════════════════════════════════════════════════════════
+
+Chỉ số Shannon (đo độ phong phú + đồng đều phân bổ vi khuẩn):
+  Nhóm Healthy   : 2.3140 ± sd  (median = 2.4124)
+  Nhóm Obese     : 2.1643 ± sd  (median = 2.2375)
+  Nhóm Overweight: 2.4393 ± sd  (median = 2.5372)
+  Mann-Whitney U (H vs OB): U=219445, p=2.6325e-10 ***
+  Effect size r = -0.2107
+  Kruskal-Wallis (3 nhóm): H=92.889, p=6.7531e-21
+
+Chỉ số Chao1 (đo độ phong phú loài – species richness):
+  Nhóm Healthy   : 46.55  (median = 48.29)
+  Nhóm Obese     : 41.34  (median = 40.00)
+  Nhóm Overweight: 52.00  (median = 51.17)
+  Mann-Whitney U (H vs OB): U=227029, p=3.6180e-14 ***
+  Effect size r = -0.2525
+  Kruskal-Wallis (3 nhóm): H=158.879, p=3.1611e-35
+
+KẾT LUẬN Alpha:
+  ✅ CÓ sự khác biệt có ý nghĩa thống kê trong Shannon Index giữa Healthy và Obese (p<0.05).
+  ✅ CÓ sự khác biệt có ý nghĩa thống kê trong Chao1 Richness giữa Healthy và Obese (p<0.05).
+
+══════════════════════════════════════════════════════════════════════════════
+PHẦN 2 – BETA DIVERSITY (Sự khác biệt cấu trúc cộng đồng giữa các mẫu)
+══════════════════════════════════════════════════════════════════════════════
+
+Phương pháp: PCoA (Bray-Curtis distance) + PCA (CLR-transformed)
+Kiểm định: PERMANOVA (999 permutations, Bray-Curtis distance)
+
+  H vs OB vs OW (all groups):
+    F = 22.731, p = 0.0010 **
+    R² = 0.0284 (2.84% variance explained by group)
+
+  H vs OB (primary comparison):
+    F = 17.596, p = 0.0010 **
+    R² = 0.0144 (1.44% variance explained by disease status)
+
+  H vs OW:
+    F = 13.080, p = 0.0010 **
+    R² = 0.0129
+
+KẾT LUẬN Beta:
+  ✅ CẤU TRÚC cộng đồng vi khuẩn KHÁC BIỆT có ý nghĩa thống kê giữa Healthy và Obese (PERMANOVA p<0.05).
+  1.44% tổng biến động được giải thích bởi tình trạng bệnh.
+
+══════════════════════════════════════════════════════════════════════════════
+PHẦN 3 – DIFFERENTIAL ABUNDANCE (Dấu ấn sinh học vi khuẩn cụ thể)
+══════════════════════════════════════════════════════════════════════════════
+
+Phương pháp: Mann-Whitney U per genus + BH-FDR correction
+Tổng genera kiểm định: 71
+Significant (q-value < 0.05): 52 genera
+
+>> CÁC GENERA TĂNG CAO Ở BỆNH NHÂN BÉO PHÌ (enriched in OB):
+   (Đây là vi khuẩn có thể liên quan đến cơ chế gây béo phì)
+   ↑ Megasphaera             Log2FC=+2.46  LDA=+0.741  q=3.70e-12  [] [unclassified]
+   ↑ Collinsella             Log2FC=+1.86  LDA=+0.560  q=2.50e-16  [] [unclassified]
+   ↑ Acidaminococcus         Log2FC=+1.42  LDA=+0.428  q=7.32e-04  [] [unclassified]
+   ↑ Streptococcus           Log2FC=+1.41  LDA=+0.425  q=4.79e-08  [] [unclassified]
+   ↑ Sutterella              Log2FC=+1.08  LDA=+0.324  q=1.12e-04  [] [unclassified]
+   ↑ Anaerotruncus           Log2FC=+0.99  LDA=+0.298  q=2.53e-07  [] [unclassified]
+   ↑ Butyricicoccus          Log2FC=+0.98  LDA=+0.294  q=2.54e-12  [] [unclassified]
+   ↑ Lachnospira             Log2FC=+0.89  LDA=+0.269  q=2.82e-17  [] [unclassified]
+   ↑ Subdoligranulum         Log2FC=+0.60  LDA=+0.180  q=1.83e-02  [] [unclassified]
+   ↑ Lachnospiracea_incertae_sedis  Log2FC=+0.52  LDA=+0.158  q=2.93e-05  [] [unclassified]
+
+>> CÁC GENERA GIẢM Ở BỆNH NHÂN BÉO PHÌ (depleted in OB):
+   (Đây là vi khuẩn bảo vệ sức khỏe, bị suy giảm khi béo phì)
+   ↓ Victivallis             Log2FC=-2.21  LDA=-0.662  q=2.38e-09  [] [unclassified]
+   ↓ Methanobrevibacter      Log2FC=-1.82  LDA=-0.547  q=7.44e-17  [] [unclassified]
+   ↓ Anaerosporobacter       Log2FC=-1.64  LDA=-0.492  q=4.28e-22  [] [unclassified]
+   ↓ Haemophilus             Log2FC=-1.62  LDA=-0.487  q=8.03e-09  [] [unclassified]
+   ↓ Desulfovibrio           Log2FC=-1.39  LDA=-0.420  q=9.20e-10  [] [unclassified]
+   ↓ Sporobacter             Log2FC=-1.39  LDA=-0.419  q=2.11e-23  [] [unclassified]
+   ↓ Lachnobacterium         Log2FC=-1.32  LDA=-0.391  q=1.01e-14  [] [unclassified]
+   ↓ Hespellia               Log2FC=-1.27  LDA=-0.380  q=1.88e-22  [] [unclassified]
+   ↓ Akkermansia             Log2FC=-1.25  LDA=-0.377  q=6.34e-20  [] [unclassified]
+   ↓ Clostridium_sensu_stricto  Log2FC=-1.10  LDA=-0.332  q=1.66e-12  [] [unclassified]
+
+══════════════════════════════════════════════════════════════════════════════
+KẾT LUẬN TỔNG THỂ
+══════════════════════════════════════════════════════════════════════════════
+
+Ba phân tích độc lập đều xác nhận:
+1. Alpha Diversity: Bị suy giảm ở bệnh nhân béo phì (p=2.632e-10)
+2. Beta Diversity : Cấu trúc cộng đồng vi khuẩn khác biệt rõ ràng (PERMANOVA p=0.0010)
+3. DA Analysis   : 52 genera có sự thay đổi nồng độ có ý nghĩa
+
+→ HỆ VI SINH VẬT RUỘT CỦA BỆNH NHÂN BÉO PHÌ THỰC SỰ BỊ RỐI LOẠN SO VỚI
+  NGƯỜI KHỎE MẠNH ở mức độ có ý nghĩa thống kê, xác nhận trên 5 cohort
+  nghiên cứu độc lập. Dữ liệu này ĐỦ ĐIỀU KIỆN để đưa vào huấn luyện ML.
+
+══════════════════════════════════════════════════════════════════════════════
+CÁC TỆP ĐẦU RA
+══════════════════════════════════════════════════════════════════════════════
+  fig1_alpha_diversity.png          – Boxplot Alpha Diversity (Shannon + Chao1)
+  fig2_beta_pca.png                 – PCA scatter (CLR) + ellipses + PERMANOVA
+  fig3_beta_pcoa.png                – PCoA scatter (Bray-Curtis) + ellipses
+  fig4_differential_abundance.png   – LEfSe-style LDA barplot
+  fig5_volcano_plot.png             – Volcano plot (Log2FC vs -log10 q-value)
+  results_alpha_diversity.csv       – Thống kê Alpha Diversity
+  results_beta_permanova.csv        – Kết quả PERMANOVA
+  results_differential_abundance.csv– Bảng DA đầy đủ tất cả genera

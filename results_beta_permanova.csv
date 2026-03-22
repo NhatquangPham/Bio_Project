@@ -1,0 +1,4 @@
+Comparison,F_statistic,p_value,R_squared,Significance,Distance_metric
+H vs OB vs OW (all),22.731302782995865,0.001,0.028352769442942075,**,Bray-Curtis
+H vs OB,17.595819804314868,0.001,0.01438041836979216,**,Bray-Curtis
+H vs OW,13.080247398326353,0.001,0.012873242474517469,**,Bray-Curtis
