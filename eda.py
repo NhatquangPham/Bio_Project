@@ -41,25 +41,20 @@ from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
 
-# ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s  %(levelname)-8s  %(message)s",
                     datefmt="%H:%M:%S")
 log = logging.getLogger(__name__)
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
-# Tất cả file CSV đầu vào phải nằm cùng thư mục với script này.
-# Kết quả (hình + CSV) cũng xuất ra cùng thư mục đó.
 BASE   = Path(__file__).parent.resolve()
 OUT    = BASE
 OUT.mkdir(parents=True, exist_ok=True)
 
-FILE_RAW  = BASE / "step2_filtered_otu.csv"    # raw counts đã lọc
-FILE_TSS  = BASE / "step3a_tss_normalized.csv"  # TSS (relative abundance)
-FILE_CLR  = BASE / "step3b_clr_normalized.csv"  # CLR (cho PCA, DA)
+FILE_RAW  = BASE / "step2_filtered_otu.csv"
+FILE_TSS  = BASE / "step3a_tss_normalized.csv"
+FILE_CLR  = BASE / "step3b_clr_normalized.csv"
 FILE_ANNOT= BASE / "taxonomy_annotation.csv"
 
-# ── Palette & style ───────────────────────────────────────────────────────────
 PALETTE  = {"H": "#2196F3", "OB": "#F44336", "OW": "#FF9800"}
 GROUPS   = ["H", "OB", "OW"]
 GROUP_LBL= {"H": "Healthy", "OB": "Obese", "OW": "Overweight"}
@@ -67,10 +62,6 @@ META_COLS= ["Dataset", "DiseaseState"]
 plt.rcParams.update({"figure.dpi": 150, "font.size": 11,
                      "axes.titlesize": 13, "axes.labelsize": 12})
 
-
-# ═════════════════════════════════════════════════════════════════════════════
-# TIỆN ÍCH
-# ═════════════════════════════════════════════════════════════════════════════
 
 def split(df):
     meta  = df[META_COLS]
@@ -84,14 +75,12 @@ def stars(p):
     return "ns"
 
 def bh_correction(pvals):
-    """Benjamini-Hochberg FDR correction (thủ công, không cần statsmodels)."""
     pvals = np.array(pvals, dtype=float)
     n     = len(pvals)
     order = np.argsort(pvals)
     ranks = np.empty(n, dtype=int)
     ranks[order] = np.arange(1, n + 1)
     qvals = pvals * n / ranks
-    # đảm bảo đơn điệu
     qvals_sorted = qvals[order]
     for i in range(n - 2, -1, -1):
         qvals_sorted[i] = min(qvals_sorted[i], qvals_sorted[i + 1])
@@ -110,25 +99,14 @@ def section(title):
     log.info(f"  {title}")
     log.info(bar)
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PHẦN 1 – ALPHA DIVERSITY
-# ═════════════════════════════════════════════════════════════════════════════
 
 def calc_shannon(row):
-    """Shannon entropy H = -Σ p_i * log(p_i), p_i = relative abundance."""
     x   = row[row > 0]
     if len(x) == 0: return 0.0
     p   = x / x.sum()
     return float(-np.sum(p * np.log(p)))
 
 def calc_chao1(row):
-    """
-    Chao1 richness estimator:
-        Chao1 = S_obs + (f1^2) / (2*f2)
-    f1 = singletons (count == 1), f2 = doubletons (count == 2).
-    Nếu f2 == 0: Chao1 = S_obs + f1*(f1-1)/2  (bias-corrected)
-    Sử dụng raw counts (integer).
-    """
     counts = row[row > 0]
     S_obs  = len(counts)
     f1     = int((counts == 1).sum())
@@ -140,11 +118,6 @@ def calc_chao1(row):
     return float(chao1)
 
 def permanova(dist_matrix, labels, n_perm=999, seed=42):
-    """
-    PERMANOVA (Anderson 2001) – thuần NumPy, không cần scikit-bio.
-    H0: không có sự khác biệt cấu trúc cộng đồng giữa các nhóm.
-    Trả về (F_statistic, p_value, R²).
-    """
     rng    = np.random.default_rng(seed)
     D      = np.array(dist_matrix)
     n      = len(labels)
@@ -152,7 +125,6 @@ def permanova(dist_matrix, labels, n_perm=999, seed=42):
     unique = np.unique(grps)
     a      = len(unique)
 
-    # Tính SS_total và SS_within bằng ma trận khoảng cách bình phương
     D2 = D ** 2
 
     def ss_within(labels_arr):
@@ -172,7 +144,6 @@ def permanova(dist_matrix, labels, n_perm=999, seed=42):
     df_w      = n - a
     F_obs     = (ss_b_obs / df_b) / (ss_w_obs / df_w)
 
-    # Permutation test
     count_ge = 0
     for _ in range(n_perm):
         perm     = rng.permutation(grps)
@@ -191,8 +162,6 @@ def run_alpha_diversity(raw_df, tss_df):
 
     meta, raw_genus = split(raw_df)
 
-    # ── Tính chỉ số ──────────────────────────────────────────────────────────
-    log.info("  Tính Shannon entropy (từ TSS) và Chao1 (từ raw counts)...")
     _, tss_genus = split(tss_df)
 
     shannon = tss_genus.apply(calc_shannon, axis=1)
@@ -205,7 +174,6 @@ def run_alpha_diversity(raw_df, tss_df):
         "Chao1"       : chao1,
     })
 
-    # ── Thống kê tóm tắt ─────────────────────────────────────────────────────
     log.info("\n  Thống kê mô tả (mean ± std):")
     summary_rows = []
     for metric in ["Shannon", "Chao1"]:
@@ -217,7 +185,6 @@ def run_alpha_diversity(raw_df, tss_df):
                      f"{vals.mean():.4f} ± {vals.std():.4f}  "
                      f"(median={vals.median():.4f}, n={len(vals)})")
 
-    # ── Mann-Whitney U: H vs OB (primary comparison) ─────────────────────────
     log.info("\n  Mann-Whitney U Test (H vs OB, two-sided):")
     mw_results = []
     for metric in ["Shannon", "Chao1"]:
@@ -229,7 +196,6 @@ def run_alpha_diversity(raw_df, tss_df):
         stat_how, p_how = stats.mannwhitneyu(h_vals, ow_vals, alternative="two-sided")
         stat_obow, p_obow = stats.mannwhitneyu(ob_vals, ow_vals, alternative="two-sided")
 
-        # Effect size: rank-biserial correlation r = 1 - 2U/(n1*n2)
         n1, n2 = len(h_vals), len(ob_vals)
         r_hob  = 1 - 2 * stat_hob / (n1 * n2)
 
@@ -263,7 +229,6 @@ def run_alpha_diversity(raw_df, tss_df):
     results_alpha.to_csv(OUT / "results_alpha_diversity.csv", index=False)
     log.info(f"\n  ✓ Lưu kết quả: results_alpha_diversity.csv")
 
-    # ── Trực quan hóa ─────────────────────────────────────────────────────────
     log.info("  Vẽ biểu đồ Alpha Diversity...")
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
@@ -286,13 +251,11 @@ def run_alpha_diversity(raw_df, tss_df):
             patch.set_facecolor(color)
             patch.set_alpha(0.75)
 
-        # Strip plot overlay
         for i, (d, c) in enumerate(zip(data_plot, colors), 1):
             jitter = np.random.uniform(-0.2, 0.2, len(d))
             ax.scatter(np.full(len(d), i) + jitter, d,
                        alpha=0.18, s=8, color=c, zorder=2)
 
-        # Significance brackets H vs OB
         row = results_alpha[results_alpha["Metric"] == metric].iloc[0]
         p   = row["p_value_HvsOB"]
         ymax= max(d.max() for d in data_plot) * 1.05
@@ -318,10 +281,6 @@ def run_alpha_diversity(raw_df, tss_df):
     return alpha_df, results_alpha
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PHẦN 2 – BETA DIVERSITY
-# ═════════════════════════════════════════════════════════════════════════════
-
 def run_beta_diversity(tss_df, clr_df):
     section("PHẦN 2: BETA DIVERSITY")
 
@@ -331,31 +290,25 @@ def run_beta_diversity(tss_df, clr_df):
     labels      = meta_tss["DiseaseState"].values
     label_colors= [PALETTE[l] for l in labels]
 
-    # ── 2A: PCoA trên Bray-Curtis (TSS) ──────────────────────────────────────
     log.info("  Tính ma trận khoảng cách Bray-Curtis (TSS)...")
     log.info("  (Bray-Curtis: tiêu chuẩn beta diversity cho dữ liệu abundance)")
 
     X_tss = tss_genus.values.astype(float)
 
-    # Tính Bray-Curtis distance matrix (vectorized)
     bc_dist = squareform(pdist(X_tss, metric="braycurtis"))
     log.info(f"  Bray-Curtis distance matrix: {bc_dist.shape}")
 
-    # PCoA via classical MDS (double-centering trên ma trận khoảng cách bình phương)
     log.info("  Thực hiện PCoA (Principal Coordinates Analysis)...")
     n = bc_dist.shape[0]
     D2 = bc_dist ** 2
     J  = np.eye(n) - np.ones((n, n)) / n
     B  = -0.5 * J @ D2 @ J
 
-    # Eigendecomposition
     eigvals, eigvecs = np.linalg.eigh(B)
-    # Sắp xếp giảm dần
     idx     = np.argsort(eigvals)[::-1]
     eigvals = eigvals[idx]
     eigvecs = eigvecs[:, idx]
 
-    # Chỉ lấy eigenvalues dương
     pos_mask = eigvals > 0
     eigvals_pos = eigvals[pos_mask]
     eigvecs_pos = eigvecs[:, pos_mask]
@@ -366,7 +319,6 @@ def run_beta_diversity(tss_df, clr_df):
     log.info(f"  PCoA PC1 explains: {explained[0]:.2f}%")
     log.info(f"  PCoA PC2 explains: {explained[1]:.2f}%")
 
-    # ── 2B: PCA trên CLR ─────────────────────────────────────────────────────
     log.info("  Thực hiện PCA (trên CLR-transformed data)...")
     X_clr = clr_genus.values.astype(float)
     pca   = PCA(n_components=10, random_state=42)
@@ -378,16 +330,13 @@ def run_beta_diversity(tss_df, clr_df):
     log.info(f"  PCA PC2 explains: {pca_var[1]:.2f}%")
     log.info(f"  Cumulative PC1-5: {pca_var[:5].sum():.2f}%")
 
-    # ── 2C: PERMANOVA ─────────────────────────────────────────────────────────
     log.info("\n  Chạy PERMANOVA (999 permutations)...")
     log.info("  H₀: Không có sự khác biệt cấu trúc cộng đồng giữa các nhóm")
 
-    # Full (H vs OB vs OW)
     F_full, p_full, R2_full = permanova(bc_dist, labels, n_perm=999)
     log.info(f"  PERMANOVA (H vs OB vs OW): F={F_full:.3f}, p={p_full:.4f} "
              f"{stars(p_full)}, R²={R2_full:.4f}")
 
-    # H vs OB only
     mask_hob  = np.isin(labels, ["H", "OB"])
     bc_hob    = bc_dist[np.ix_(mask_hob, mask_hob)]
     lab_hob   = labels[mask_hob]
@@ -395,7 +344,6 @@ def run_beta_diversity(tss_df, clr_df):
     log.info(f"  PERMANOVA (H vs OB only):  F={F_hob:.3f}, p={p_hob:.4f} "
              f"{stars(p_hob)}, R²={R2_hob:.4f}")
 
-    # H vs OW only
     mask_how  = np.isin(labels, ["H", "OW"])
     bc_how    = bc_dist[np.ix_(mask_how, mask_how)]
     lab_how   = labels[mask_how]
@@ -417,7 +365,6 @@ def run_beta_diversity(tss_df, clr_df):
     perm_results.to_csv(OUT / "results_beta_permanova.csv", index=False)
     log.info(f"  ✓ Lưu kết quả: results_beta_permanova.csv")
 
-    # ── Vẽ PCA ────────────────────────────────────────────────────────────────
     log.info("  Vẽ biểu đồ Beta Diversity PCA (CLR)...")
     fig2, ax = plt.subplots(figsize=(10, 8))
 
@@ -427,7 +374,6 @@ def run_beta_diversity(tss_df, clr_df):
                    c=PALETTE[grp], label=f"{GROUP_LBL[grp]} (n={mask.sum()})",
                    alpha=0.45, s=20, edgecolors="none")
 
-    # Vẽ 95% confidence ellipse cho mỗi nhóm
     for grp in GROUPS:
         mask = labels == grp
         pts  = pc_coords[mask, :2]
@@ -438,7 +384,7 @@ def run_beta_diversity(tss_df, clr_df):
         order= vals.argsort()[::-1]
         vals, vecs = vals[order], vecs[:, order]
         angle = np.degrees(np.arctan2(*vecs[:, 0][::-1]))
-        w, h  = 2 * np.sqrt(vals * 5.991)    # 95% CI (chi2 df=2)
+        w, h  = 2 * np.sqrt(vals * 5.991)
         ell   = matplotlib.patches.Ellipse(
             xy=mean, width=w, height=h, angle=angle,
             edgecolor=PALETTE[grp], facecolor=PALETTE[grp],
@@ -458,7 +404,6 @@ def run_beta_diversity(tss_df, clr_df):
     fig2.tight_layout()
     save_fig(fig2, "fig2_beta_pca.png", "Beta Diversity PCA")
 
-    # ── Vẽ PCoA ───────────────────────────────────────────────────────────────
     log.info("  Vẽ biểu đồ Beta Diversity PCoA (Bray-Curtis)...")
     fig3, ax3 = plt.subplots(figsize=(10, 8))
 
@@ -501,16 +446,7 @@ def run_beta_diversity(tss_df, clr_df):
     return perm_results
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PHẦN 3 – DIFFERENTIAL ABUNDANCE (DA)
-# ═════════════════════════════════════════════════════════════════════════════
-
 def lda_effect_size(h_vals, ob_vals):
-    """
-    LEfSe-style LDA effect size (log10 scale):
-    Tính phân biệt giữa H và OB bằng Linear Discriminant Analysis đơn giản.
-    Xấp xỉ bằng log10(mean_ob + ε) - log10(mean_h + ε).
-    """
     eps     = 1e-6
     lda_val = np.log10(np.mean(ob_vals) + eps) - np.log10(np.mean(h_vals) + eps)
     return float(lda_val)
@@ -535,28 +471,21 @@ def run_differential_abundance(tss_df, clr_df, annot_df):
         ob_vals = tss_genus.loc[ob_idx, genus].values
         ow_vals = tss_genus.loc[ow_idx, genus].values
 
-        # Mann-Whitney U: H vs OB
         stat_hob, p_hob = stats.mannwhitneyu(h_vals, ob_vals, alternative="two-sided")
-        # Mann-Whitney U: H vs OW
         stat_how, p_how = stats.mannwhitneyu(h_vals, ow_vals, alternative="two-sided")
 
-        # Effect size: log2 fold change (mean OB / mean H), TSS
         eps   = 1e-9
         lfc   = np.log2((ob_vals.mean() + eps) / (h_vals.mean() + eps))
 
-        # LDA effect size (LEfSe-style)
         lda   = lda_effect_size(h_vals, ob_vals)
 
-        # Mean relative abundance
         mean_h  = h_vals.mean()
         mean_ob = ob_vals.mean()
         mean_ow = ow_vals.mean()
 
-        # Prevalence
         prev_h  = (h_vals  > 0).mean()
         prev_ob = (ob_vals > 0).mean()
 
-        # Taxonomy annotation
         phylum = annot_df.loc[genus, "Phylum"]   if genus in annot_df.index else ""
         family = annot_df.loc[genus, "Family"]   if genus in annot_df.index else ""
         assoc  = annot_df.loc[genus, "Health_Association"] if genus in annot_df.index else ""
@@ -579,23 +508,18 @@ def run_differential_abundance(tss_df, clr_df, annot_df):
 
     da_df = pd.DataFrame(rows)
 
-    # ── BH-FDR correction ─────────────────────────────────────────────────────
     da_df["q_value_HvsOB"] = bh_correction(da_df["p_value_HvsOB"].values)
     da_df["q_value_HvsOW"] = bh_correction(da_df["p_value_HvsOW"].values)
 
-    # Phân loại hướng thay đổi
     da_df["Direction"] = da_df["Log2FC_OBvsH"].apply(
         lambda x: "↑ in OB" if x > 0 else "↓ in OB"
     )
 
-    # Đánh dấu significant (q < 0.05)
     da_df["Significant"] = da_df["q_value_HvsOB"] < 0.05
 
-    # Sắp xếp theo q_value
     da_df = da_df.sort_values("q_value_HvsOB")
     da_df.to_csv(OUT / "results_differential_abundance.csv", index=False)
 
-    # ── Log kết quả ───────────────────────────────────────────────────────────
     sig_df = da_df[da_df["Significant"]]
     log.info(f"\n  Kết quả DA (H vs OB):")
     log.info(f"  Tổng genera test      : {len(da_df)}")
@@ -619,10 +543,8 @@ def run_differential_abundance(tss_df, clr_df, annot_df):
 
     log.info(f"\n  ✓ Lưu kết quả: results_differential_abundance.csv")
 
-    # ── Hình 4: Barplot DA ────────────────────────────────────────────────────
     log.info("  Vẽ biểu đồ Differential Abundance Barplot...")
 
-    # Lấy top 20 significant (10 tăng + 10 giảm)
     n_show  = 12
     top_plot_up = sig_df[sig_df["Direction"] == "↑ in OB"].head(n_show)
     top_plot_dn = sig_df[sig_df["Direction"] == "↓ in OB"].tail(n_show)
@@ -638,7 +560,6 @@ def run_differential_abundance(tss_df, clr_df, annot_df):
         bars = ax4.barh(range(len(plot_df)), plot_df["LDA_Score_OBvsH"],
                         color=colors4, alpha=0.85, edgecolor="white", height=0.7)
 
-        # Gán nhãn q-value và phylum
         for i, (_, row) in enumerate(plot_df.iterrows()):
             q_str   = f"q={row['q_value_HvsOB']:.2e}"
             ph_val  = row['Phylum'] if isinstance(row['Phylum'], str) else ""
@@ -669,38 +590,32 @@ def run_differential_abundance(tss_df, clr_df, annot_df):
         fig4.tight_layout()
         save_fig(fig4, "fig4_differential_abundance.png", "DA Barplot LEfSe-style")
 
-    # ── Hình 5: Volcano Plot ──────────────────────────────────────────────────
     log.info("  Vẽ Volcano Plot...")
     fig5, ax5 = plt.subplots(figsize=(10, 7))
 
-    # Không significant
     mask_ns = ~da_df["Significant"]
     ax5.scatter(da_df.loc[mask_ns, "Log2FC_OBvsH"],
                 -np.log10(da_df.loc[mask_ns, "q_value_HvsOB"] + 1e-300),
                 color="gray", alpha=0.5, s=40, label="Not significant", zorder=2)
 
-    # Significant tăng OB
     mask_up = da_df["Significant"] & (da_df["Direction"] == "↑ in OB")
     ax5.scatter(da_df.loc[mask_up, "Log2FC_OBvsH"],
                 -np.log10(da_df.loc[mask_up, "q_value_HvsOB"] + 1e-300),
                 color="#F44336", alpha=0.85, s=80, label="↑ in Obese", zorder=3,
                 edgecolors="darkred", linewidth=0.8)
 
-    # Significant giảm OB
     mask_dn = da_df["Significant"] & (da_df["Direction"] == "↓ in OB")
     ax5.scatter(da_df.loc[mask_dn, "Log2FC_OBvsH"],
                 -np.log10(da_df.loc[mask_dn, "q_value_HvsOB"] + 1e-300),
                 color="#2196F3", alpha=0.85, s=80, label="↓ in Obese (↑ in Healthy)", zorder=3,
                 edgecolors="darkblue", linewidth=0.8)
 
-    # Ngưỡng
     q_thresh = -np.log10(0.05)
     ax5.axhline(q_thresh, color="black", linewidth=1, linestyle="--", alpha=0.7)
     ax5.text(ax5.get_xlim()[0] if ax5.get_xlim()[0] != 0 else da_df["Log2FC_OBvsH"].min(),
              q_thresh + 0.1, "q = 0.05", fontsize=9, color="black")
     ax5.axvline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
 
-    # Label top genera
     top_label = pd.concat([
         da_df[mask_up].nlargest(6, "Log2FC_OBvsH"),
         da_df[mask_dn].nsmallest(6, "Log2FC_OBvsH"),
@@ -728,10 +643,6 @@ def run_differential_abundance(tss_df, clr_df, annot_df):
 
     return da_df
 
-
-# ═════════════════════════════════════════════════════════════════════════════
-# BÁO CÁO THỐNG KÊ VĂN BẢN
-# ═════════════════════════════════════════════════════════════════════════════
 
 def write_report(alpha_results, perm_results, da_df):
     section("XUẤT BÁO CÁO THỐNG KÊ")
@@ -861,14 +772,9 @@ CÁC TỆP ĐẦU RA
     print(report)
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# MAIN
-# ═════════════════════════════════════════════════════════════════════════════
-
 def main():
     section("GIAI ĐOẠN 1 – EDA & STATISTICAL ANALYSIS")
 
-    # Đọc dữ liệu
     log.info("Đọc các file đầu vào...")
     raw_df   = pd.read_csv(FILE_RAW,   index_col=0)
     tss_df   = pd.read_csv(FILE_TSS,   index_col=0)
@@ -878,16 +784,12 @@ def main():
 
     np.random.seed(42)
 
-    # ── Phần 1: Alpha Diversity ───────────────────────────────────────────────
     alpha_df, alpha_results = run_alpha_diversity(raw_df, tss_df)
 
-    # ── Phần 2: Beta Diversity ────────────────────────────────────────────────
     perm_results = run_beta_diversity(tss_df, clr_df)
 
-    # ── Phần 3: Differential Abundance ───────────────────────────────────────
     da_df = run_differential_abundance(tss_df, clr_df, annot_df)
 
-    # ── Báo cáo tổng hợp ─────────────────────────────────────────────────────
     write_report(alpha_results, perm_results, da_df)
 
     section("HOÀN TẤT GIAI ĐOẠN 1")
